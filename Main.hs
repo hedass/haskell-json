@@ -1,10 +1,13 @@
 import Control.Applicative
+import Data.Bifunctor
 import Data.Char
+import Data.Maybe
+import Data.Tuple
 
 data JsonValue
   = JsonNull
   | JsonBool Bool
-  | JsonNumber Integer -- NOTE: no support for floats
+  | JsonNumber Double
   | JsonString String
   | JsonArray [JsonValue]
   | JsonObject [(String, JsonValue)]
@@ -71,9 +74,8 @@ notNull (Parser p) =
       else Just (input', xs)
 
 jsonNumber :: Parser JsonValue
-jsonNumber = f <$> notNull (spanP isDigit)
-  where
-    f ds = JsonNumber $ read ds
+jsonNumber = Parser $ \input -> do
+  second JsonNumber . swap <$> listToMaybe (reads input :: [(Double, String)])
 
 -- NOTE: no escape support
 stringLiteral :: Parser String
