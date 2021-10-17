@@ -1,23 +1,25 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main where
 
-import           Control.Applicative
-import           Data.Char
-import           Numeric
-import           System.Exit
+import Control.Applicative
+import Data.Char
+import Numeric
+import System.Exit
 
 data Input = Input
-  { inputLoc :: Int
-  , inputStr :: String
-  } deriving (Show, Eq)
+  { inputLoc :: Int,
+    inputStr :: String
+  }
+  deriving (Show, Eq)
 
 -- | Pull the first character of the input if there is one still input
-inputUncons :: Input                  -- input to check
-            -> Maybe (Char, Input)
-inputUncons (Input _ [])       = Nothing
-inputUncons (Input loc (x:xs)) = Just (x, Input (loc + 1) xs)
+inputUncons ::
+  Input -> -- input to check
+  Maybe (Char, Input)
+inputUncons (Input _ []) = Nothing
+inputUncons (Input loc (x : xs)) = Just (x, Input (loc + 1) xs)
 
 data JsonValue
   = JsonNull
@@ -63,34 +65,36 @@ jsonNull :: Parser JsonValue
 jsonNull = JsonNull <$ stringP "null"
 
 -- | Create a parser for a single specific character
-charP :: Char         -- The single character to find in the input
-      -> Parser Char
+charP ::
+  Char -> -- The single character to find in the input
+  Parser Char
 charP x = Parser f
   where
     f input@(inputUncons -> Just (y, ys))
       | y == x = Right (ys, x)
       | otherwise =
         Left $
-        ParserError
-          (inputLoc input)
-          ("Expected '" ++ [x] ++ "', but found '" ++ [y] ++ "'")
+          ParserError
+            (inputLoc input)
+            ("Expected '" ++ [x] ++ "', but found '" ++ [y] ++ "'")
     f input =
       Left $
-      ParserError
-        (inputLoc input)
-        ("Expected '" ++ [x] ++ "', but reached end of string")
+        ParserError
+          (inputLoc input)
+          ("Expected '" ++ [x] ++ "', but reached end of string")
 
 -- | Create a parser for a specific string
-stringP :: String         -- String to find in the input
-        -> Parser String
+stringP ::
+  String -> -- String to find in the input
+  Parser String
 stringP str =
   Parser $ \input ->
     case runParser (traverse charP str) input of
       Left _ ->
         Left $
-        ParserError
-          (inputLoc input)
-          ("Expected \"" ++ str ++ "\", but found \"" ++ inputStr input ++ "\"")
+          ParserError
+            (inputLoc input)
+            ("Expected \"" ++ str ++ "\", but found \"" ++ inputStr input ++ "\"")
       result -> result
 
 -- | Create a parser for boolean values
@@ -101,15 +105,17 @@ jsonBool = jsonTrue <|> jsonFalse
     jsonFalse = JsonBool False <$ stringP "false"
 
 -- | Parser of strings where all characters satifsfy a predicate
-spanP :: String           -- description
-      -> (Char -> Bool)   -- predicate
-      -> Parser String
+spanP ::
+  String -> -- description
+  (Char -> Bool) -> -- predicate
+  Parser String
 spanP desc = many . parseIf desc
 
 -- | Parser of a character that satisfies a predicate
-parseIf :: String         -- Description of the predicate
-        -> (Char -> Bool) -- predicate
-        -> Parser Char
+parseIf ::
+  String -> -- Description of the predicate
+  (Char -> Bool) -> -- predicate
+  Parser Char
 parseIf desc f =
   Parser $ \input ->
     case input of
@@ -117,26 +123,27 @@ parseIf desc f =
         | f y -> Right (ys, y)
         | otherwise ->
           Left $
-          ParserError
-            (inputLoc input)
-            ("Expected " ++ desc ++ ", but found '" ++ [y] ++ "'")
+            ParserError
+              (inputLoc input)
+              ("Expected " ++ desc ++ ", but found '" ++ [y] ++ "'")
       _ ->
         Left $
-        ParserError
-          (inputLoc input)
-          ("Expected " ++ desc ++ ", but reached end of string")
+          ParserError
+            (inputLoc input)
+            ("Expected " ++ desc ++ ", but reached end of string")
 
 {-
 See page 12 of
 http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
 -}
+
 -- | Parser for doubles
 doubleLiteral :: Parser Double
 doubleLiteral =
   doubleFromParts
     <$> (minus <|> pure 1)
     <*> (read <$> digits)
-    <*> ((read <$> (('0':) <$> ((:) <$> charP '.' <*> digits))) <|> pure 0)
+    <*> ((read <$> (('0' :) <$> ((:) <$> charP '.' <*> digits))) <|> pure 0)
     <*> ((e *> ((*) <$> (plus <|> minus <|> pure 1) <*> (read <$> digits))) <|> pure 0)
   where
     digits = some $ parseIf "digit" isDigit
@@ -145,11 +152,12 @@ doubleLiteral =
     e = charP 'e' <|> charP 'E'
 
 -- | Build a Double from its parts (sign, integral part, decimal part, exponent)
-doubleFromParts :: Integer  -- sign
-                -> Integer  -- integral part
-                -> Double   -- decimal part
-                -> Integer  -- exponent
-                -> Double
+doubleFromParts ::
+  Integer -> -- sign
+  Integer -> -- integral part
+  Double -> -- decimal part
+  Integer -> -- exponent
+  Double
 doubleFromParts sign int dec expo =
   fromIntegral sign * (fromIntegral int + dec) * (10 ^^ expo)
 
@@ -163,15 +171,16 @@ escapeUnicode = chr . fst . head . readHex <$> sequenceA (replicate 4 (parseIf "
 
 -- | Parser for characters that are scaped in the input
 escapeChar :: Parser Char
-escapeChar = ('"' <$ stringP "\\\"") <|>
-             ('\\' <$ stringP "\\\\") <|>
-             ('/' <$ stringP "\\/") <|>
-             ('\b' <$ stringP "\\b") <|>
-             ('\f' <$ stringP "\\f") <|>
-             ('\n' <$ stringP "\\n") <|>
-             ('\r' <$ stringP "\\r") <|>
-             ('\t' <$ stringP "\\t") <|>
-             (stringP "\\u" *> escapeUnicode)
+escapeChar =
+  ('"' <$ stringP "\\\"")
+    <|> ('\\' <$ stringP "\\\\")
+    <|> ('/' <$ stringP "\\/")
+    <|> ('\b' <$ stringP "\\b")
+    <|> ('\f' <$ stringP "\\f")
+    <|> ('\n' <$ stringP "\\n")
+    <|> ('\r' <$ stringP "\\r")
+    <|> ('\t' <$ stringP "\\t")
+    <|> (stringP "\\u" *> escapeUnicode)
 
 -- | Parser of a character that is not " or \\
 normalChar :: Parser Char
@@ -191,9 +200,10 @@ ws = spanP "whitespace character" isSpace
 
 -- | Creates a parser for a string of type "element1 sep1 element2 sep2 element3"
 -- from a parser for separators (sep1, sep2) and and a parser form elements (element1, element2, element3).
-sepBy :: Parser a   -- Parser for the separators
-      -> Parser b   -- Parser for elements
-      -> Parser [b]
+sepBy ::
+  Parser a -> -- Parser for the separators
+  Parser b -> -- Parser for elements
+  Parser [b]
 sepBy sep element = (:) <$> element <*> many (sep *> element) <|> pure []
 
 -- | Parser for json arrays
@@ -205,25 +215,26 @@ jsonArray = JsonArray <$> (charP '[' *> ws *> elements <* ws <* charP ']')
 -- | Parser for json objects
 jsonObject :: Parser JsonValue
 jsonObject =
-  JsonObject <$>
-  (charP '{' *> ws *> sepBy (ws *> charP ',' <* ws) pair <* ws <* charP '}')
+  JsonObject
+    <$> (charP '{' *> ws *> sepBy (ws *> charP ',' <* ws) pair <* ws <* charP '}')
   where
     pair = liftA2 (,) (stringLiteral <* ws <* charP ':' <* ws) jsonValue
 
 -- | Parser for any json
 jsonValue :: Parser JsonValue
 jsonValue =
-  jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray <|>
-  jsonObject
+  jsonNull <|> jsonBool <|> jsonNumber <|> jsonString <|> jsonArray
+    <|> jsonObject
 
 -- | Apply parser to content of file
-parseFile :: FilePath                 -- File path to parse
-          -> Parser a                 -- Parser to use
-          -> IO (Either ParserError a)
+parseFile ::
+  FilePath -> -- File path to parse
+  Parser a -> -- Parser to use
+  IO (Either ParserError a)
 parseFile fileName parser = do
   input <- readFile fileName
   case runParser parser $ Input 0 input of
-    Left e       -> return $ Left e
+    Left e -> return $ Left e
     Right (_, x) -> return $ Right x
 
 -- >>> main
@@ -251,8 +262,9 @@ main = do
         then putStrLn "[SUCCESS] Parser produced expected result."
         else do
           putStrLn
-            ("[ERROR] Parser produced unexpected result. Expected result was: " ++
-             show expectedJsonAst)
+            ( "[ERROR] Parser produced unexpected result. Expected result was: "
+                ++ show expectedJsonAst
+            )
           exitFailure
     Left (ParserError loc msg) -> do
       putStrLn $
@@ -261,28 +273,29 @@ main = do
   where
     testJsonText =
       unlines
-        [ "{"
-        , "    \"hello\": [false, true, null, 42, \"foo\\n\\u1234\\\"\", [1, -2, 3.1415, 4e-6, 5E6, 0.123e+1]],"
-        , "    \"world\": null"
-        , "}"
+        [ "{",
+          "    \"hello\": [false, true, null, 42, \"foo\\n\\u1234\\\"\", [1, -2, 3.1415, 4e-6, 5E6, 0.123e+1]],",
+          "    \"world\": null",
+          "}"
         ]
     expectedJsonAst =
       JsonObject
-        [ ( "hello"
-          , JsonArray
-              [ JsonBool False
-              , JsonBool True
-              , JsonNull
-              , JsonNumber 42
-              , JsonString "foo\n\4660\""
-              , JsonArray
-                  [ JsonNumber 1.0
-                  , JsonNumber (-2.0)
-                  , JsonNumber 3.1415
-                  , JsonNumber 4e-6
-                  , JsonNumber 5000000
-                  , JsonNumber 1.23
+        [ ( "hello",
+            JsonArray
+              [ JsonBool False,
+                JsonBool True,
+                JsonNull,
+                JsonNumber 42,
+                JsonString "foo\n\4660\"",
+                JsonArray
+                  [ JsonNumber 1.0,
+                    JsonNumber (-2.0),
+                    JsonNumber 3.1415,
+                    JsonNumber 4e-6,
+                    JsonNumber 5000000,
+                    JsonNumber 1.23
                   ]
-              ])
-        , ("world", JsonNull)
+              ]
+          ),
+          ("world", JsonNull)
         ]
