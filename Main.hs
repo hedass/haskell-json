@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 import Control.Applicative
 import Data.Bifunctor
 import Data.Char
@@ -60,10 +62,12 @@ jsonBool = f <$> (stringP "true" <|> stringP "false")
     f _ = undefined
 
 spanP :: (Char -> Bool) -> Parser String
-spanP f =
-  Parser $ \input ->
-    let (token, rest) = span f input
-     in Just (rest, token)
+spanP = many . parseIf
+
+-- spanP f =
+--   Parser $ \input ->
+--     let (token, rest) = span f input
+--      in Just (rest, token)
 
 notNull :: Parser [a] -> Parser [a]
 notNull (Parser p) =
@@ -72,6 +76,13 @@ notNull (Parser p) =
     if null xs
       then Nothing
       else Just (input', xs)
+
+parseIf :: (Char -> Bool) -> Parser Char
+parseIf f =
+  Parser $ \input ->
+    case input of
+      y : ys | f y -> Just (ys, y)
+      _ -> Nothing
 
 jsonNumber :: Parser JsonValue
 jsonNumber = Parser $ \input -> do
