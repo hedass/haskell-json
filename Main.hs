@@ -5,6 +5,7 @@ import Data.Bifunctor
 import Data.Char
 import Data.Maybe
 import Data.Tuple
+import Numeric
 
 data JsonValue
   = JsonNull
@@ -75,9 +76,26 @@ jsonNumber :: Parser JsonValue
 jsonNumber = Parser $ \input -> do
   second JsonNumber . swap <$> listToMaybe (reads input :: [(Double, String)])
 
--- NOTE: no escape support
+escapeUnicode :: Parser Char
+escapeUnicode = chr . fst . head . readHex <$> sequenceA (replicate 4 (parseIf isHexDigit))
+
+escapeChar :: Parser Char
+escapeChar =
+  ('"' <$ stringP "\\\"")
+    <|> ('\\' <$ stringP "\\\\")
+    <|> ('/' <$ stringP "\\/")
+    <|> ('\b' <$ stringP "\\b")
+    <|> ('\f' <$ stringP "\\f")
+    <|> ('\n' <$ stringP "\\n")
+    <|> ('\r' <$ stringP "\\r")
+    <|> ('\t' <$ stringP "\\t")
+    <|> (stringP "\\u" *> escapeUnicode)
+
+normalChar :: Parser Char
+normalChar = parseIf ((&&) <$> (/= '"') <*> (/= '\\'))
+
 stringLiteral :: Parser String
-stringLiteral = charP '"' *> spanP (/= '"') <* charP '"'
+stringLiteral = charP '"' *> many (normalChar <|> escapeChar) <* charP '"'
 
 jsonString :: Parser JsonValue
 jsonString = JsonString <$> stringLiteral
@@ -116,5 +134,5 @@ parseFile fileName parser = do
   input <- readFile fileName
   return (snd <$> runParser parser input)
 
-main :: IO ()
-main = undefined
+main :: IO (Maybe JsonValue)
+main = parseFile "./test.json" jsonValue
