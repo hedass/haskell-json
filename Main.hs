@@ -64,19 +64,6 @@ jsonBool = f <$> (stringP "true" <|> stringP "false")
 spanP :: (Char -> Bool) -> Parser String
 spanP = many . parseIf
 
--- spanP f =
---   Parser $ \input ->
---     let (token, rest) = span f input
---      in Just (rest, token)
-
-notNull :: Parser [a] -> Parser [a]
-notNull (Parser p) =
-  Parser $ \input -> do
-    (input', xs) <- p input
-    if null xs
-      then Nothing
-      else Just (input', xs)
-
 parseIf :: (Char -> Bool) -> Parser Char
 parseIf f =
   Parser $ \input ->

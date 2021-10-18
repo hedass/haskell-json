@@ -1,6 +1,6 @@
 {
     "string": "b",
-    "number": 4234746,
+    "number": 123523,
     "array": ["foo", 42, {"foo": 4e-6}, ["foo", 42]],
     "bool": true,
     "other-bool": false,
