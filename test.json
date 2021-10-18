@@ -1,6 +1,8 @@
 {
     "string": "b",
     "number": 123523,
+    "string-with-escaped-stuff": "\b\f\n\r\t\"\\",
+    "string-with-unicode": "15\u00f8C 3\u0111",
     "array": ["foo", 42, {"foo": 4e-6}, ["foo", 42]],
     "bool": true,
     "other-bool": false,
